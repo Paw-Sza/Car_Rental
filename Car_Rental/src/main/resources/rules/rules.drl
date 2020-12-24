@@ -1,0 +1,803 @@
+package car_rental
+import java.text.SimpleDateFormat;
+
+rule "Correct booking"
+salience 1		
+    when
+      b : Booking(rentCheck==false)
+    then	
+    	b.text+="|--------\n";
+		b.text+="| Klient: "+b.client.name+" Nie posiada rezerwacji na ten okres\n";
+		b.text+="|--------\n";
+		b.rentCheck=true;
+		update(b);
+		
+end
+
+rule "Incorrect booking (wrong date)"
+salience 2		
+	when
+	   b : Booking(rentCheck==false)
+	   conflict : Booking(client==b.client &&
+	   (
+	 	    (
+		    	(b.rentalDate.after(rentalDate) ) 
+		    	&&
+		    	(b.rentalDate.before(returnDate) )
+		    ) 
+		    || 
+		    (
+		    	(b.returnDate.after(rentalDate) ) 
+		    	&& 
+		    	(b.returnDate.before(returnDate) )
+		    ) 
+		    || 
+		    (
+		    	(b.returnDate.after(returnDate) ) 
+		    	&& 
+		    	(b.rentalDate.before(rentalDate) )
+		    ) 
+	    ))
+
+	then	
+	    String pattern = "dd-MM-yyyy";
+		SimpleDateFormat df = new SimpleDateFormat(pattern);
+	    System.out.println("[Rezerwacja]");
+	    System.out.println("-----------------");
+		System.out.println("| Odrzucono rezerwacjê");
+		System.out.println("| Klient: " + b.client.name);
+		System.out.println("| Typ samochodu: "+b.carType);
+		System.out.println("| Okres: "+df.format(b.rentalDate)+" - "+df.format(b.returnDate)); 
+		System.out.println("| Powód: Istniej¹ca rezerwacja na dany okres czasu");
+		System.out.println("------------------");
+		retract(b);		
+			
+end
+rule "Incorrect booking wrong date format"
+salience 3		
+	when
+	   b : Booking(rentInProgress==false)
+	then	
+		retract(b);		
+			
+end	
+	
+	rule "Booking car type ANY"
+	
+	    when
+	      b : Booking(carType == "ANY" && carCheck==false && rentCheck==true)
+	    then
+	    	b.text+="| Poszukiwanie samochodu typu: Dowolny.\n";
+			b.carID="A1";
+			b.carCheck=true;
+			update(b);
+	end
+	
+	rule "Booking car type A"
+	
+	    when
+	      b : Booking(carType == "A" && carCheck==false && rentCheck==true)
+	    then
+			b.text+="| Poszukiwanie samochodu typu: A.\n";
+			b.carID="A1";
+			b.carCheck=true;
+			update(b);
+	end
+	
+		rule "Car A1 is busy"
+		salience 2		
+		    when
+		      b : Booking((carType == "A" || carType == "ANY") && carID=="A1" && carCheck==true && carChosen==false)
+		      conflict : Booking(carID=="A1" && (
+	 	    (
+		    	(b.rentalDate.after(rentalDate) ) 
+		    	&&
+		    	(b.rentalDate.before(returnDate) )
+		    ) 
+		    || 
+		    (
+		    	(b.returnDate.after(rentalDate) ) 
+		    	&& 
+		    	(b.returnDate.before(returnDate) )
+		    ) 
+		    || 
+		    (
+		    	(b.returnDate.after(returnDate) ) 
+		    	&& 
+		    	(b.rentalDate.before(rentalDate) )
+		    ) 
+	    ) )
+		    then	
+				b.text+="| Samochód: A1 niedostêpny.\n"	;
+				b.carID="A2";
+				update(b);
+				
+		end
+		
+		rule "Car A1 is ready to be booked"
+		salience 1	
+		    when
+		      b : Booking(carID=="A1" && carCheck==true && carChosen==false)
+		    then	
+				b.text+="| Samochód: A1 dostêpny, zarezerwowano.\n";
+				b.carTypeAny="A";
+				b.carChosen=true;
+				update(b);
+				
+		end
+		
+		rule "Car A2 is busy"
+		salience 2
+		    when
+		      b : Booking(carID=="A2" && carCheck==true && carChosen==false)
+		      conflict : Booking(carID=="A2" && (
+	 	    (
+		    	(b.rentalDate.after(rentalDate) ) 
+		    	&&
+		    	(b.rentalDate.before(returnDate) )
+		    ) 
+		    || 
+		    (
+		    	(b.returnDate.after(rentalDate) ) 
+		    	&& 
+		    	(b.returnDate.before(returnDate) )
+		    ) 
+		    || 
+		    (
+		    	(b.returnDate.after(returnDate) ) 
+		    	&& 
+		    	(b.rentalDate.before(rentalDate) )
+		    ) 
+	    ) )
+		    then	
+				b.text+="| Samochód: A2 niedostêpny.\n";
+				b.carAvaible=false;
+				b.carCheck=false;
+				b.carID="B1";
+				update(b);
+				
+		end
+		rule "Car A2 is busy while looking for ANY car"
+		salience 3
+		    when
+		      b : Booking(carType=="ANY" && carID=="A2" && carCheck==true && carChosen==false)
+		      conflict : Booking(carID=="A2" && (
+	 	    (
+		    	(b.rentalDate.after(rentalDate) ) 
+		    	&&
+		    	(b.rentalDate.before(returnDate) )
+		    ) 
+		    || 
+		    (
+		    	(b.returnDate.after(rentalDate) ) 
+		    	&& 
+		    	(b.returnDate.before(returnDate) )
+		    ) 
+		    || 
+		    (
+		    	(b.returnDate.after(returnDate) ) 
+		    	&& 
+		    	(b.rentalDate.before(rentalDate) )
+		    ) 
+	    ) )
+		    then	
+				b.text+="| Samochód: A2 niedostêpny.\n";
+				b.text+="| Poszukiwanie w typie B.\n";
+				b.carCheck=false;
+				b.carID="B1";
+				update(b);
+				
+		end
+		rule "Car A2 is ready to be booked"
+		salience 1	
+		    when
+		      b : Booking(carID=="A2" && carCheck==true && carChosen==false)
+		    then	
+				b.text+="| Samochód: A2 dostêpny, zarezerwowano.\n";
+				b.carTypeAny="A";
+				b.carChosen=true;
+				update(b);
+				
+		end
+	
+	rule "Booking car type B"
+	
+	    when
+	      b : Booking((carType == "B" || carID=="B1") && carCheck==false && rentCheck==true)
+	    then
+		 b.text+="| Poszukiwanie samochodu typu: B.\n";
+		 b.carID="B1";
+	     b.carCheck=true;
+		 update(b);
+	end
+	
+		rule "Car B1 is busy"
+		salience 2		
+		    when
+		      b : Booking(carID=="B1" && carCheck==true && carChosen==false)
+		      conflict : Booking(carID=="B1"  && (
+	 	    (
+		    	(b.rentalDate.after(rentalDate) ) 
+		    	&&
+		    	(b.rentalDate.before(returnDate) )
+		    ) 
+		    || 
+		    (
+		    	(b.returnDate.after(rentalDate) ) 
+		    	&& 
+		    	(b.returnDate.before(returnDate) )
+		    ) 
+		    || 
+		    (
+		    	(b.returnDate.after(returnDate) ) 
+		    	&& 
+		    	(b.rentalDate.before(rentalDate) )
+		    ) 
+	    ) )
+		    then	
+				b.text+="| Samochód: B1 niedostêpny.\n";
+				b.carAvaible=false;
+				b.carCheck=true;
+				update(b);
+				
+		end
+		rule "Car B1 is busy while looking for ANY car"
+		salience 3		
+		    when
+		      b : Booking(carType=="ANY" && carID=="B1" && carCheck==true && carChosen==false)
+		      conflict : Booking(carID=="B1"  && (
+	 	    (
+		    	(b.rentalDate.after(rentalDate) ) 
+		    	&&
+		    	(b.rentalDate.before(returnDate) )
+		    ) 
+		    || 
+		    (
+		    	(b.returnDate.after(rentalDate) ) 
+		    	&& 
+		    	(b.returnDate.before(returnDate) )
+		    ) 
+		    || 
+		    (
+		    	(b.returnDate.after(returnDate) ) 
+		    	&& 
+		    	(b.rentalDate.before(rentalDate) )
+		    ) 
+	    ) )
+		    then	
+				b.text+="| Samochód: B1 niedostêpny.\n";
+				b.text+="| Poszukiwanie w typie D.\n";
+				b.carID="D1";
+				b.carCheck=true;
+				update(b);
+				
+		end		
+		rule "Car B1 is ready to be booked"
+		salience 1	
+		    when
+		      b : Booking(carID=="B1" && carCheck==true && carChosen==false)
+		    then	
+				b.text+="| Samochód: B1 dostêpny, zarezerwowano.\n";
+				b.carChosen=true;
+				b.carTypeAny="B";
+				update(b);
+				
+		end
+	
+	rule "Booking car type D"
+	
+	    when
+	      b : Booking((carType == "D"|| carID=="D1") && carCheck==false && rentCheck==true)
+	    then
+		 b.text+="| Poszukiwanie samochodu typu: D.\n";
+		 b.carID="D1";
+	     b.carCheck=true;
+		 update(b);
+		 
+	end
+	
+		rule "Car D1 is busy"
+		salience 2		
+		    when
+		      b : Booking(carID=="D1" && carCheck==true && carChosen==false)
+		      conflict : Booking(carID=="D1"  && (
+	 	    (
+		    	(b.rentalDate.after(rentalDate) ) 
+		    	&&
+		    	(b.rentalDate.before(returnDate) )
+		    ) 
+		    || 
+		    (
+		    	(b.returnDate.after(rentalDate) ) 
+		    	&& 
+		    	(b.returnDate.before(returnDate) )
+		    ) 
+		    || 
+		    (
+		    	(b.returnDate.after(returnDate) ) 
+		    	&& 
+		    	(b.rentalDate.before(rentalDate) )
+		    ) 
+	    ) )
+		    then	
+				b.text+="| Samochód: D1 niedostêpny.\n";
+				b.carID="D2";
+				update(b);
+				
+		end
+		
+		rule "Car D1 is ready to be booked"
+		salience 1	
+		    when
+		      b : Booking(carID=="D1" && carCheck==true && carChosen==false)
+		    then	
+				b.text+="| Samochód: D1 dostêpny, zarezerwowano.\n";
+				b.carChosen=true;
+				b.carTypeAny="D";	
+				update(b);
+				
+		end
+		
+		rule "Car D2 is busy"
+		salience 2
+		    when
+		      b : Booking(carID=="D2" && carCheck==true && carChosen==false)
+		      conflict : Booking(carID=="D2" && (
+	 	    (
+		    	(b.rentalDate.after(rentalDate) ) 
+		    	&&
+		    	(b.rentalDate.before(returnDate) )
+		    ) 
+		    || 
+		    (
+		    	(b.returnDate.after(rentalDate) ) 
+		    	&& 
+		    	(b.returnDate.before(returnDate) )
+		    ) 
+		    || 
+		    (
+		    	(b.returnDate.after(returnDate) ) 
+		    	&& 
+		    	(b.rentalDate.before(rentalDate) )
+		    ) 
+	    ) )
+		    then	
+		    	b.text+="| Samochód: D2 niedostêpny.\n";
+				b.carAvaible=false;						
+				update(b);
+				
+		end
+		
+		rule "Car D2 is ready to be booked"
+		salience 1	
+		    when
+		      b : Booking(carID=="D2" && carCheck==true && carChosen==false)
+		    then	
+				b.text+="| Samochód: D2 dostêpny, zarezerwowano.\n";
+				b.carTypeAny="D";
+				b.carChosen=true;
+				update(b);
+				
+		end	
+		rule "No cars avaible"
+			salience 3
+		    when
+		      b : Booking(carAvaible==false)
+		    then	
+		    	String pattern = "dd-MM-yyyy";
+				SimpleDateFormat df = new SimpleDateFormat(pattern);	
+			    System.out.println("[Rezerwacja]");
+			    System.out.println("-----------------");
+				System.out.println("| Odrzucono rezerwacjê");
+				System.out.println("| Klient: " + b.client.name);
+				System.out.println("| Typ samochodu: "+b.carType);
+				System.out.println("| Okres: "+df.format(b.rentalDate)+" - "+df.format(b.returnDate)); 
+				System.out.println("| Powód: Brak samochodów spe³niaj¹cych wymagania");
+				System.out.print(b.text);	
+				System.out.println("------------------\n \n");						
+				retract(b);
+				
+		end
+	//payments
+
+		rule "Booking summary A Short"
+		salience 1
+			when
+				b : Booking(carChosen==true && priceCheck==false && (carType=="A" || carTypeAny=="A") )
+			then
+				b.SetValue(b.getlength()*Car.GetShortPriceA());	
+				b.text+="|--------\n";
+				b.text+="| [Podsumowanie] \n";
+			    b.text+="|--------\n";
+			    b.text+="| Liczba dni: "+b.getlength()+" dni\n";
+				b.text+="| Koszt wynajmu:"+b.getlength()+" * "+Car.GetShortPriceA()/100+"."+Car.GetShortPriceA()%100+"\n";
+				b.text+="| Suma :"+b.GetValue()/100+"."+b.GetValue()%100+"\n";
+				b.priceCheck=true;
+				update(b);
+		end
+				rule "Booking summary B Short"
+		salience 1
+			when
+				b : Booking(carChosen==true && priceCheck==false && (carType=="B" || carTypeAny=="B"))
+			then
+				b.SetValue(b.getlength()*Car.GetShortPriceB());	
+				b.text+="|--------\n";
+				b.text+="| [Podsumowanie] \n";
+			    b.text+="|--------\n";
+			    b.text+="| Liczba dni: "+b.getlength()+" dni\n";
+				b.text+="| Koszt wynajmu:"+b.getlength()+" * "+Car.GetShortPriceB()/100+"."+Car.GetShortPriceB()%100+"\n";
+				b.text+="| Suma :"+b.GetValue()/100+"."+b.GetValue()%100+"\n";
+				b.priceCheck=true;
+				update(b);
+		end
+		rule "Booking summary D Short"
+		salience 1
+			when
+				b : Booking(carChosen==true && priceCheck==false && (carType=="D" || carTypeAny=="D"))
+			then
+				b.SetValue(b.getlength()*Car.GetShortPriceD());	
+				b.text+="|--------\n";
+				b.text+="| [Podsumowanie] \n";
+			    b.text+="|--------\n";
+			    b.text+="| Liczba dni: "+b.getlength()+" dni\n";
+				b.text+="| Koszt wynajmu:"+b.getlength()+" * "+Car.GetShortPriceD()/100+"."+Car.GetShortPriceD()%100+"\n";
+				b.text+="| Suma :"+b.GetValue()/100+"."+b.GetValue()%100+"\n";
+				b.priceCheck=true;
+				update(b);
+		end
+				rule "Booking summary A Long"
+		salience 2
+			when
+				b : Booking(carChosen==true && priceCheck==false && b.getlength()>3 && (carType=="A" || carTypeAny=="A"))
+			then
+				b.SetValue(b.getlength()*Car.GetLongPriceA());	
+				b.text+="|--------\n";
+				b.text+="| [Podsumowanie] \n";
+			    b.text+="|--------\n";
+			    b.text+="| Liczba dni: "+b.getlength()+" dni\n";
+				b.text+="| Koszt wynajmu:"+b.getlength()+" * "+Car.GetLongPriceA()/100+"."+Car.GetLongPriceA()%100+"\n";
+				b.text+="| Suma :"+b.GetValue()/100+"."+b.GetValue()%100+"\n";
+				b.priceCheck=true;
+				update(b);
+		end
+		rule "Booking summary B Long"
+		salience 2
+			when
+				b : Booking(carChosen==true && priceCheck==false && b.getlength()>3 && (carType=="B" || carTypeAny=="B"))
+			then
+				b.SetValue(b.getlength()*Car.GetLongPriceB());	
+				b.text+="|--------\n";
+				b.text+="| [Podsumowanie] \n";
+			    b.text+="|--------\n";
+			    b.text+="| Liczba dni: "+b.getlength()+" dni\n";
+				b.text+="| Koszt wynajmu:"+b.getlength()+" * "+Car.GetLongPriceB()/100+"."+Car.GetLongPriceB()%100+"\n";
+				b.text+="| Suma :"+b.GetValue()/100+"."+b.GetValue()%100+"\n";
+				b.priceCheck=true;
+				update(b);
+		end
+		rule "Booking summary D Long"
+		salience 2
+			when
+				b : Booking(carChosen==true && priceCheck==false && b.getlength()>3 && (carType=="D" || carTypeAny=="D"))
+			then
+				b.SetValue(b.getlength()*Car.GetLongPriceD());	
+				b.text+="| [Podsumowanie] \n";
+			    b.text+="|--------\n";
+			    b.text+="| Liczba dni: "+b.getlength()+" dni\n";
+				b.text+="| Koszt wynajmu:"+b.getlength()+" * "+Car.GetLongPriceD()/100+"."+Car.GetLongPriceD()%100+"\n";
+				b.text+="| Suma :"+b.GetValue()/100+"."+b.GetValue()%100+"\n";
+				b.priceCheck=true;
+				update(b);
+		end	
+
+		rule "Privlege check - no privlege"
+			when 
+				b : Booking(privlegeCheck == false &&  priceCheck==true && freeExtra!="none" && client.loyalty_program==false)
+			then
+				b.freeExtra="none";
+				b.privlegeCheck=true;
+				b.text+="| Brak progamu lojalnoœciowego. Usuniêto darmowy przedmiot.\n";
+				
+				update(b);
+		end
+		rule "Privlege check - privlege"
+			when 
+				b : Booking(privlegeCheck == false &&  priceCheck==true && client.loyalty_program==true)
+			then
+				b.privlegeCheck=true;
+				update(b);
+		end
+		rule "Privlege check - privlege not used"
+			when 
+				b : Booking(privlegeCheck == false &&  priceCheck==true && freeExtra=="none")
+			then
+				b.privlegeCheck=true;
+				update(b);
+		end
+			rule "Add baby seat price"
+				when
+					b : Booking(privlegeCheck==true && extrasPriceCheck==false && babySeatChosen==true && freeExtra!="babySeat" )
+				then
+					b.babySeatChosen = false;
+					b.AddValue(b.GetSeatCost());
+					b.extrasPriceCheck=true;
+					b.text+="| Wypo¿yczenie fotelika: "+b.GetSeatCost()/100+"."+b.GetSeatCost()%100+"\n";
+					update(b);
+			end	
+			rule "Add rack price"
+				when
+					b : Booking(privlegeCheck==true && extrasPriceCheck==false && rackChosen==true && freeExtra!="rack" )
+				then
+					b.rackChosen = false;
+					b.AddValue(b.GetRackCost());
+					b.extrasPriceCheck=true;
+					b.text+="| Wypo¿yczenie baga¿nika: "+b.GetRackCost()/100+"."+b.GetRackCost()%100+"\n";
+					update(b);
+			end	
+		rule "Add free rack"
+				when
+					b : Booking(privlegeCheck==true && extrasPriceCheck==false && rackChosen==true && freeExtra=="rack")
+				then
+					b.rackChosen = false;
+					b.extrasPriceCheck=true; 
+					b.text+="| Wypo¿yczenie baga¿nika: 0.0 \n";
+					update(b);
+			end			
+			rule "Add free baby seat"
+				when
+					b : Booking(privlegeCheck==true && extrasPriceCheck==false && babySeatChosen==true && freeExtra=="babySeat")
+				then
+					b.babySeatChosen = false; 
+					b.extrasPriceCheck=true;
+					b.text+="| Wypo¿yczenie fotelika: 0.0 \n";
+					update(b);
+			end	
+		
+		rule "End extras price calculation"
+			when
+				b : Booking(privlegeCheck==true && extrasPriceCheck==false && babySeatChosen==false && rackChosen==false)
+			then
+				b.extrasPriceCheck=true;
+				update(b);
+		end		
+		rule "Summary"
+			when
+				b : Booking(extrasPriceCheck==true && summaryCheck==false)
+			then
+				b.summaryCheck=true;
+				String pattern = "dd-MM-yyyy";
+				SimpleDateFormat df = new SimpleDateFormat(pattern);
+				System.out.println("[Rezerwacja]");
+				System.out.println("-----------------");
+				System.out.println("| Zaakceptowano rezerwacjê");
+				System.out.println("| Klient: " + b.client.name);
+				System.out.println("| Typ samochodu: "+b.carType);
+				System.out.println("| Okres: "+df.format(b.rentalDate)+" - "+df.format(b.returnDate)); 
+				System.out.print(b.text);
+				System.out.println("| Rycza³t: "+b.GetValue()/100+"."+b.GetValue()%100);
+				System.out.println("------------------\n \n");
+				update(b);
+		end
+		
+		
+		
+rule "Return error"
+	salience 2
+    when
+    	r : CarReturn(rentInProgress==false)
+    then	
+		retract(r);
+end			
+rule "Car return type A Short"
+    when
+    	r : CarReturn(delayCheck==false && r.getdelay()>0 && r.booking.getlength()<=3 && r.booking.carType=="A")
+    then	
+    	String pattern = "dd-MM-yyyy";
+		SimpleDateFormat df = new SimpleDateFormat(pattern);
+    	r.SetValue(3*Car.GetShortPriceA()*r.getdelay());
+    	r.text+="[Zwrot]\n";
+    	r.text+="-----------------\n";
+    	r.text+="| Data: "+df.format(r.ReturnDate)+" \n";
+    	r.text+="| Klient: "+r.booking.client.name+" \n";
+    	r.text+="| Samochód "+r.booking.carID+" \n";
+    	r.text+="| Okres wynajmu "+df.format(r.booking.rentalDate)+" - "+df.format(r.booking.returnDate)+" \n";
+    	r.text+="| Kara za opóŸnienie: "+r.getdelay()+"*"+3*Car.GetShortPriceA()/100+"."+3*Car.GetShortPriceA()%100+" \n";
+    	r.text+="| Suma: "+r.GetValue()/100+"."+r.GetValue()%100+" \n";
+    	r.delayCheck=true;
+		update(r);
+end	
+
+rule "Car return type B Short"
+    when
+    	r : CarReturn(delayCheck==false && r.getdelay()>0 && r.booking.getlength()<=3 && r.booking.carType=="B")
+    then	
+    	String pattern = "dd-MM-yyyy";
+		SimpleDateFormat df = new SimpleDateFormat(pattern);
+    	r.SetValue(3*Car.GetShortPriceB()*r.getdelay());
+    	r.text+="[Zwrot]\n";
+    	r.text+="-----------------\n";
+    	r.text+="| Data: "+df.format(r.ReturnDate)+" \n";
+    	r.text+="| Klient: "+r.booking.client.name+" \n";
+    	r.text+="| Samochód "+r.booking.carID+" \n";
+    	r.text+="| Okres wynajmu "+df.format(r.booking.rentalDate)+" - "+df.format(r.booking.returnDate)+" \n";
+    	r.text+="| Kara za opóŸnienie: "+r.getdelay()+"*"+3*Car.GetShortPriceB()/100+"."+3*Car.GetShortPriceB()%100+" \n";
+    	r.text+="| Suma: "+r.GetValue()/100+"."+r.GetValue()%100+" \n";
+    	r.delayCheck=true;
+		update(r);
+end	
+rule "Car return type D Short"
+    when
+    	r : CarReturn(delayCheck==false && r.getdelay()>0 && r.booking.getlength()<=3 && r.booking.carType=="D")
+    then	
+    	String pattern = "dd-MM-yyyy";
+		SimpleDateFormat df = new SimpleDateFormat(pattern);
+    	r.SetValue(3*Car.GetShortPriceD()*r.getdelay());
+    	r.text+="[Zwrot]\n";
+    	r.text+="-----------------\n";
+    	r.text+="| Data: "+df.format(r.ReturnDate)+" \n";
+    	r.text+="| Klient: "+r.booking.client.name+" \n";
+    	r.text+="| Samochód "+r.booking.carID+" \n";
+    	r.text+="| Okres wynajmu "+df.format(r.booking.rentalDate)+" - "+df.format(r.booking.returnDate)+" \n";
+    	r.text+="| Kara za opóŸnienie: "+r.getdelay()+"*"+3*Car.GetShortPriceD()/100+"."+3*Car.GetShortPriceD()%100+" \n";
+    	r.text+="| Suma: "+r.GetValue()/100+"."+r.GetValue()%100+" \n";
+    	r.delayCheck=true;
+		update(r);
+end			
+rule "Car return type A Long"
+    when
+    	r : CarReturn(delayCheck==false && r.getdelay()>0 && r.booking.getlength()>3 && r.booking.carType=="A")
+    then	
+    	String pattern = "dd-MM-yyyy";
+		SimpleDateFormat df = new SimpleDateFormat(pattern);
+    	r.SetValue(3*Car.GetLongPriceA()*r.getdelay());
+    	r.text+="[Zwrot]\n";
+    	r.text+="-----------------\n";
+    	r.text+="| Data: "+df.format(r.ReturnDate)+" \n";
+    	r.text+="| Klient: "+r.booking.client.name+" \n";
+    	r.text+="| Samochód "+r.booking.carID+" \n";
+    	r.text+="| Okres wynajmu "+df.format(r.booking.rentalDate)+" - "+df.format(r.booking.returnDate)+" \n";
+    	r.text+="| Kara za opóŸnienie: "+r.getdelay()+"*"+3*Car.GetLongPriceA()/100+"."+3*Car.GetLongPriceA()%100+" \n";
+    	r.text+="| Suma: "+r.GetValue()/100+"."+r.GetValue()%100+" \n";
+    	r.delayCheck=true;
+		update(r);
+end	
+
+rule "Car return type B Long"
+    when
+    	r : CarReturn(delayCheck==false && r.getdelay()>0 && r.booking.getlength()>3 && r.booking.carType=="B")
+    then	
+    	String pattern = "dd-MM-yyyy";
+		SimpleDateFormat df = new SimpleDateFormat(pattern);
+    	r.SetValue(3*Car.GetLongPriceB()*r.getdelay());
+    	r.text+="[Zwrot]\n";
+    	r.text+="-----------------\n";
+    	r.text+="| Data: "+df.format(r.ReturnDate)+" \n";
+    	r.text+="| Klient: "+r.booking.client.name+" \n";
+    	r.text+="| Samochód "+r.booking.carID+" \n";
+    	r.text+="| Okres wynajmu "+df.format(r.booking.rentalDate)+" - "+df.format(r.booking.returnDate)+" \n";
+    	r.text+="| Kara za opóŸnienie: "+r.getdelay()+"*"+3*Car.GetLongPriceB()/100+"."+3*Car.GetLongPriceB()%100+" \n";
+    	r.text+="| Suma: "+r.GetValue()/100+"."+r.GetValue()%100+" \n";
+    	r.delayCheck=true;
+		update(r);
+end	
+rule "Car return type D Long"
+    when
+    	r : CarReturn(delayCheck==false && r.getdelay()>0 && r.booking.getlength()>3 && r.booking.carType=="D")
+    then	
+    	String pattern = "dd-MM-yyyy";
+		SimpleDateFormat df = new SimpleDateFormat(pattern);
+    	r.SetValue(3*Car.GetLongPriceD()*r.getdelay());
+    	r.text+="[Zwrot]\n";
+    	r.text+="-----------------\n";
+    	r.text+="| Data: "+df.format(r.ReturnDate)+" \n";
+    	r.text+="| Klient: "+r.booking.client.name+" \n";
+    	r.text+="| Samochód "+r.booking.carID+" \n";
+    	r.text+="| Okres wynajmu "+df.format(r.booking.rentalDate)+" - "+df.format(r.booking.returnDate)+" \n";
+    	r.text+="| Kara za opóŸnienie: "+r.getdelay()+"*"+3*Car.GetLongPriceD()/100+"."+3*Car.GetLongPriceD()%100+" \n";
+    	r.text+="| Suma: "+r.GetValue()/100+"."+r.GetValue()%100+" \n";
+    	r.delayCheck=true;
+		update(r);
+end	
+
+rule "Car return no delay"
+	salience 1
+    when
+    	r : CarReturn(delayCheck==false && r.getdelay()<=0)
+    then	
+    	String pattern = "dd-MM-yyyy";
+		SimpleDateFormat df = new SimpleDateFormat(pattern);
+    	r.text+="[Zwrot]\n";
+    	r.text+="-----------------\n";
+    	r.text+="| Data: "+df.format(r.ReturnDate)+" \n";
+    	r.text+="| Klient: "+r.booking.client.name+" \n";
+    	r.text+="| Samochód "+r.booking.carID+" \n";
+    	r.text+="| Okres wynajmu "+df.format(r.booking.rentalDate)+" - "+df.format(r.booking.returnDate)+" \n";
+    	r.text+="| Kara za opóŸnienie: brak \n";
+    	r.delayCheck=true;
+		update(r);
+end	
+
+rule "Mileage price calculation Long"
+    when
+    	r : CarReturn(delayCheck==true && mileageCheck==false && r.booking.getlength>3)
+    then	
+    	r.AddValue(Car.GetLongPriceKM()*r.distance);
+    	r.text+="|--------\n";
+    	r.text+="| Kilometry: "+r.distance+" \n";
+    	r.text+="| Koszt: "+r.distance+"*"+Car.GetLongPriceKM()/100+"."+Car.GetLongPriceKM()%100+" \n";
+    	r.text+="| Suma: "+Car.GetLongPriceKM()*r.distance/100+"."+Car.GetLongPriceKM()*r.distance%100+" \n";
+    	r.text+="|--------\n";
+    	r.mileageCheck=true;
+		update(r);
+end
+rule "Mileage price calculation Short"
+    when
+    	r : CarReturn(delayCheck==true && mileageCheck==false && r.booking.getlength<=3)
+    then	
+    	r.AddValue(Car.GetShortPriceKM()*r.distance);
+    	r.text+="|--------\n";
+    	r.text+="| Kilometry: "+r.distance+" \n";
+    	r.text+="| Koszt: "+r.distance+"*"+Car.GetShortPriceKM()/100+"."+Car.GetShortPriceKM()%100+" \n";
+    	r.text+="| Suma: "+Car.GetShortPriceKM()*r.distance/100+"."+Car.GetShortPriceKM()*r.distance%100+" \n";;
+    	r.text+="|--------\n";
+		r.mileageCheck=true;
+		update(r);
+end
+
+rule "Fine calculation lost registration"
+salience 2
+    when
+    	r : CarReturn(mileageCheck==true && finesCheck==false && registrationLost==true)
+    then	
+    	r.AddValue(r.GetRegistrationFine());
+    	r.text+="| Zgubiony dowód rejestracyjny: "+r.GetRegistrationFine()/100+"."+r.GetRegistrationFine()%100+"\n";
+    	r.registrationLost=false;
+		update(r);
+end
+
+rule "Fine calculation lost caps"
+salience 2
+    when
+    	r : CarReturn(mileageCheck==true && finesCheck==false && capsLost>0)
+    then	
+    	r.AddValue(r.GetCapsFine()*r.capsLost);
+    	r.text+="| Liczba zgubionych ko³paków: "+r.capsLost+"*"+r.GetCapsFine()/100+"."+r.GetCapsFine()%100+"\n";
+    	r.text+="| Liczba zgubionych ko³paków: "+r.GetCapsFine()*r.capsLost/100+"."+r.GetCapsFine()*r.capsLost%100+"\n";
+    	r.capsLost=0;
+		update(r);
+end
+
+rule "Fine calculation lost policy"
+salience 2
+    when
+    	r : CarReturn(mileageCheck==true && finesCheck==false && policyLost==true)
+    then	
+    	r.AddValue(r.GetPolicyFine());
+    	r.text+="| Zgubiona polisa ubezpieczeniowa: "+r.GetPolicyFine()/100+"."+r.GetPolicyFine()%100+"\n";
+    	r.policyLost=false;
+		update(r);
+end
+
+rule "End of Fines calculation"
+salience 1
+    when
+    	r : CarReturn(mileageCheck==true && finesCheck==false)
+    then	
+   		r.finesCheck=true;
+
+		update(r);	
+end
+rule "Return Summary"
+salience 1
+    when
+    	r : CarReturn(finesCheck==true && summaryCheck==false)
+    then	
+		r.summaryCheck=true;
+		System.out.print(r.text);
+		System.out.println("| Suma: "+r.GetValue()/100+"."+r.GetValue()%100);
+		System.out.println("|--------");
+		System.out.println("| Sumaryczny koszt rezerwacji: "+(r.GetValue()+r.booking.GetValue())/100+"."+(r.GetValue()+r.booking.GetValue())%100);
+		System.out.println("----------------- \n \n");
+		update(r);
+		
+end
